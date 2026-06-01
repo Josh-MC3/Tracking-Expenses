@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Family Budget Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f11;
+    --surface: #17171a;
+    --surface2: #1e1e23;
+    --border: #2a2a30;
+    --text: #f0efe8;
+    --muted: #7a7a85;
+    --accent: #c8f560;
+    --accent2: #60c8f5;
+    --accent3: #f560c8;
+    --accent4: #f5c860;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 2rem 2.5rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  header h1 {
+    font-family: var(--font-head);
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+  }
+
+  header span {
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    min-height: calc(100vh - 73px);
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 1.5rem;
+    overflow-y: auto;
+    max-height: calc(100vh - 73px);
+  }
+
+  .sidebar-title {
+    font-family: var(--font-head);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  .cat-block {
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .cat-toggle {
+    width: 100%;
+    background: var(--surface);
+    border: none;
+    color: var(--text);
+    font-family: var(--font-head);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.6rem 0.9rem;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.15s;
+  }
+
+  .cat-toggle:hover { background: var(--surface2); }
+
+  .cat-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-right: 8px;
+    display: inline-block;
+  }
+
+  .cat-label { display: flex; align-items: center; gap: 0; }
+
+  .cat-total {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .cat-chevron {
+    font-size: 0.6rem;
+    color: var(--muted);
+    transition: transform 0.2s;
+    margin-left: 6px;
+  }
+
+  .cat-chevron.open { transform: rotate(180deg); }
+
+  .cat-items { display: none; background: var(--surface2); }
+  .cat-items.open { display: block; }
+
+  .item-row {
+    display: grid;
+    grid-template-columns: 1fr 100px;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  .item-name {
+    font-size: 0.7rem;
+    color: #ccc;
+    line-height: 1.3;
+  }
+
+  .item-freq {
+    font-size: 0.6rem;
+    color: var(--muted);
+  }
+
+  .item-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 4px 7px;
+    text-align: right;
+    width: 100%;
+    transition: border-color 0.15s;
+  }
+
+  .item-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  /* MAIN */
+  .main { padding: 1.5rem 2rem; overflow-y: auto; }
+
+  .totals-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 2rem;
+  }
+
+  .total-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+  }
+
+  .total-card .label {
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .total-card .value {
+    font-family: var(--font-head);
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+  }
+
+  .chart-card.wide {
+    grid-column: 1 / -1;
+  }
+
+  .chart-title {
+    font-family: var(--font-head);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  .chart-wrap {
+    position: relative;
+  }
+
+  .legend-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-top: 1rem;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.65rem;
+    color: var(--muted);
+  }
+
+  .legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .export-btn {
+    background: var(--accent);
+    color: #0f0f11;
+    border: none;
+    border-radius: 6px;
+    font-family: var(--font-head);
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.6rem 1.4rem;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: opacity 0.15s;
+    margin-top: 0.5rem;
+  }
+
+  .export-btn:hover { opacity: 0.85; }
+
+  .reset-btn {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    margin-left: 0.5rem;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .reset-btn:hover { border-color: var(--muted); color: var(--text); }
+
+  .btn-row { display: flex; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Family Budget Dashboard</h1>
+  <span>Interactive Expense Tracker</span>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-title">Enter Monthly Amounts ($)</div>
+    <div id="sidebarCats"></div>
+  </aside>
+
+  <main class="main">
+    <div class="btn-row">
+      <button class="export-btn" onclick="exportCSV()">↓ Export CSV</button>
+      <button class="reset-btn" onclick="resetAll()">Reset all</button>
+    </div>
+
+    <div class="totals-row" id="totalsRow"></div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">Monthly breakdown — Donut</div>
+        <div class="chart-wrap" style="height:280px">
+          <canvas id="donutChart" role="img" aria-label="Donut chart of monthly expenses by category"></canvas>
+        </div>
+        <div class="legend-grid" id="donutLegend"></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Monthly vs Annual — Stacked Bar</div>
+        <div class="chart-wrap" style="height:280px">
+          <canvas id="barChart" role="img" aria-label="Stacked bar chart comparing monthly and annual totals by category"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card wide">
+        <div class="chart-title">All categories — Horizontal comparison</div>
+        <div class="chart-wrap" id="hbarWrap">
+          <canvas id="hbarChart" role="img" aria-label="Horizontal bar chart of all categories by monthly spend"></canvas>
+        </div>
+        <div class="legend-grid" id="hbarLegend"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const CATS = [
+  {id:'housing', label:'Housing & Utilities', color:'#60a8f5',
+    items:[
+      {n:'Mortgage / Rent',f:'monthly'},{n:'Property taxes',f:'monthly'},{n:'Homeowners/renters insurance',f:'monthly'},
+      {n:'HOA fees',f:'monthly'},{n:'Electricity',f:'monthly'},{n:'Natural gas',f:'monthly'},
+      {n:'Water & sewer',f:'monthly'},{n:'Trash',f:'monthly'},{n:'Internet',f:'monthly'},
+      {n:'Streaming / cable',f:'monthly'},{n:'Home security',f:'monthly'},{n:'Lawn care',f:'monthly'},
+      {n:'HVAC / filters',f:'annual'},{n:'Home repairs',f:'monthly'},{n:'Cleaning supplies',f:'monthly'}
+    ]},
+  {id:'food', label:'Food & Groceries', color:'#c8f560',
+    items:[
+      {n:'Grocery store',f:'weekly'},{n:'Restaurants',f:'weekly'},{n:'Fast food / takeout',f:'weekly'},
+      {n:'Coffee / cafes',f:'weekly'},{n:'Work lunches',f:'daily'},{n:'Alcohol / beverages',f:'weekly'},
+      {n:'Meal kit subscriptions',f:'monthly'},{n:'Warehouse club (Costco)',f:'monthly'},
+      {n:'Pet food',f:'monthly'}
+    ]},
+  {id:'transport', label:'Transportation', color:'#f5a060',
+    items:[
+      {n:'Car payment – vehicle 1',f:'monthly'},{n:'Car payment – vehicle 2',f:'monthly'},
+      {n:'Auto insurance',f:'monthly'},{n:'Gasoline',f:'weekly'},{n:'Car registration',f:'annual'},
+      {n:'Oil changes',f:'quarterly'},{n:'Tires & repairs',f:'monthly'},{n:'Car wash',f:'monthly'},
+      {n:'Parking / tolls',f:'monthly'},{n:'Public transit',f:'monthly'},{n:'Rideshare',f:'monthly'},
+      {n:'Roadside assistance',f:'annual'}
+    ]},
+  {id:'health', label:'Health & Medical', color:'#f560a0',
+    items:[
+      {n:'Health insurance premiums',f:'monthly'},{n:'Dental insurance',f:'monthly'},
+      {n:'Vision insurance',f:'monthly'},{n:'Doctor copays',f:'monthly'},{n:'Prescriptions',f:'monthly'},
+      {n:'OTC medications',f:'monthly'},{n:'Mental health therapy',f:'monthly'},
+      {n:'Gym membership',f:'monthly'},{n:'Dental cleanings',f:'semi-annual'},
+      {n:'Eye exams / glasses',f:'annual'},{n:'Life insurance',f:'monthly'},
+      {n:'Disability insurance',f:'monthly'},{n:'FSA / HSA contributions',f:'monthly'}
+    ]},
+  {id:'children', label:'Children & Education', color:'#b060f5',
+    items:[
+      {n:'Childcare / daycare',f:'monthly'},{n:'School tuition / fees',f:'monthly'},
+      {n:'After-school programs',f:'monthly'},{n:'Tutoring',f:'monthly'},
+      {n:'College savings (529)',f:'monthly'},{n:'Student loan payments',f:'monthly'},
+      {n:'School supplies',f:'annual'},{n:'Kids clothing',f:'seasonal'},
+      {n:'Sports / activities',f:'monthly'},{n:'Diapers & baby supplies',f:'monthly'},
+      {n:'Toys & books',f:'monthly'}
+    ]},
+  {id:'clothing', label:'Clothing & Personal', color:'#f5e060',
+    items:[
+      {n:'Adult clothing',f:'monthly'},{n:'Shoes',f:'monthly'},{n:'Underwear / basics',f:'monthly'},
+      {n:'Dry cleaning',f:'monthly'},{n:'Haircuts – adults',f:'monthly'},
+      {n:'Haircuts – kids',f:'monthly'},{n:'Hair coloring / salon',f:'monthly'},
+      {n:'Skincare & cosmetics',f:'monthly'},{n:'Toiletries',f:'monthly'},{n:'Manicure / pedicure',f:'monthly'}
+    ]},
+  {id:'finance', label:'Finance & Savings', color:'#60f5e0',
+    items:[
+      {n:'401(k) contributions',f:'monthly'},{n:'IRA contributions',f:'monthly'},
+      {n:'Emergency fund',f:'monthly'},{n:'General savings',f:'monthly'},
+      {n:'Investment brokerage',f:'monthly'},{n:'Credit card payments',f:'monthly'},
+      {n:'Personal loan payments',f:'monthly'},{n:'Tax prep (CPA)',f:'annual'}
+    ]},
+  {id:'tech', label:'Technology & Subscriptions', color:'#60c8f5',
+    items:[
+      {n:'Mobile phones (family plan)',f:'monthly'},{n:'Netflix / streaming',f:'monthly'},
+      {n:'Music (Spotify, etc.)',f:'monthly'},{n:'Gaming subscriptions',f:'monthly'},
+      {n:'Cloud storage',f:'monthly'},{n:'Software (Office, etc.)',f:'monthly'},
+      {n:'Phone upgrades',f:'annual'},{n:'Computer / devices',f:'annual'}
+    ]},
+  {id:'leisure', label:'Leisure & Entertainment', color:'#f560c8',
+    items:[
+      {n:'Vacation – flights',f:'annual'},{n:'Vacation – hotels',f:'annual'},
+      {n:'Vacation – activities',f:'annual'},{n:'Weekend trips',f:'monthly'},
+      {n:'Movie theaters',f:'monthly'},{n:'Concert / events',f:'monthly'},
+      {n:'Hobbies & supplies',f:'monthly'},{n:'Books / magazines',f:'monthly'},
+      {n:'Charitable donations',f:'monthly'},{n:'Holiday gifts',f:'annual'}
+    ]},
+  {id:'pets', label:'Pets', color:'#f5a0c8',
+    items:[
+      {n:'Pet food',f:'monthly'},{n:'Vet – routine',f:'annual'},
+      {n:'Pet insurance',f:'monthly'},{n:'Grooming',f:'monthly'},
+      {n:'Boarding / pet sitting',f:'monthly'},{n:'Medications / supplies',f:'monthly'}
+    ]},
+  {id:'emergency', label:'Emergency & Irregular', color:'#f56060',
+    items:[
+      {n:'Emergency fund top-up',f:'monthly'},{n:'Car breakdown / tow',f:'monthly'},
+      {n:'Urgent home repairs',f:'monthly'},{n:'Medical emergency',f:'monthly'},
+      {n:'Legal fees',f:'monthly'},{n:'Family emergency travel',f:'monthly'}
+    ]}
+];
+
+const FREQ = {
+  'daily':30.4,'weekly':4.33,'monthly':1,'quarterly':1/3,'semi-annual':1/6,
+  'annual':1/12,'seasonal':1/3,'monthly':1
+};
+
+const amounts = {};
+CATS.forEach(c => c.items.forEach((item, i) => { amounts[`${c.id}-${i}`] = 0; }));
+
+function toMonthly(val, freq) {
+  return val * (FREQ[freq] || 1);
+}
+
+function catMonthly(cat) {
+  return cat.items.reduce((s, item, i) => s + toMonthly(amounts[`${cat.id}-${i}`] || 0, item.f), 0);
+}
+
+function grandMonthly() {
+  return CATS.reduce((s, c) => s + catMonthly(c), 0);
+}
+
+function fmt(n) {
+  return '$' + Math.round(n).toLocaleString();
+}
+
+// BUILD SIDEBAR
+function buildSidebar() {
+  const el = document.getElementById('sidebarCats');
+  el.innerHTML = CATS.map(cat => `
+    <div class="cat-block">
+      <button class="cat-toggle" onclick="toggleCat('${cat.id}', this)">
+        <span class="cat-label">
+          <span class="cat-dot" style="background:${cat.color}"></span>
+          ${cat.label}
+        </span>
+        <span style="display:flex;align-items:center;gap:4px">
+          <span class="cat-total" id="ct-${cat.id}"></span>
+          <span class="cat-chevron" id="chev-${cat.id}">▼</span>
+        </span>
+      </button>
+      <div class="cat-items" id="ci-${cat.id}">
+        ${cat.items.map((item, i) => `
+          <div class="item-row">
+            <div>
+              <div class="item-name">${item.n}</div>
+              <div class="item-freq">${item.f}</div>
+            </div>
+            <input class="item-input" type="number" min="0" placeholder="0"
+              onchange="setAmt('${cat.id}',${i},'${item.f}',this.value)"
+              oninput="setAmt('${cat.id}',${i},'${item.f}',this.value)"
+              id="inp-${cat.id}-${i}">
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function toggleCat(id, btn) {
+  const items = document.getElementById('ci-' + id);
+  const chev = document.getElementById('chev-' + id);
+  const open = items.classList.toggle('open');
+  chev.classList.toggle('open', open);
+}
+
+function setAmt(catId, idx, freq, val) {
+  amounts[`${catId}-${idx}`] = parseFloat(val) || 0;
+  updateAll();
+}
+
+// CHARTS
+let donutChart, barChart, hbarChart;
+
+function initCharts() {
+  const donutCtx = document.getElementById('donutChart').getContext('2d');
+  donutChart = new Chart(donutCtx, {
+    type: 'doughnut',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 2, borderColor: '#0f0f11', hoverOffset: 8 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '65%',
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)} / mo` }
+      }}
+    }
+  });
+
+  const barCtx = document.getElementById('barChart').getContext('2d');
+  barChart = new Chart(barCtx, {
+    type: 'bar',
+    data: { labels: [], datasets: [
+      { label: 'Monthly', data: [], backgroundColor: [] },
+      { label: 'Annual', data: [], backgroundColor: [], borderWidth: 0 }
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, ticks: { color: '#7a7a85', font: { family: 'DM Mono', size: 9 } }, grid: { color: '#2a2a30' } },
+        y: { stacked: true, ticks: { color: '#7a7a85', font: { family: 'DM Mono', size: 9 }, callback: v => '$' + Math.round(v).toLocaleString() }, grid: { color: '#2a2a30' } }
+      },
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}` }
+      }}
+    }
+  });
+
+  const hbarCtx = document.getElementById('hbarChart').getContext('2d');
+  hbarChart = new Chart(hbarCtx, {
+    type: 'bar',
+    data: { labels: [], datasets: [{ label: 'Monthly', data: [], backgroundColor: [] }] },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { color: '#7a7a85', font: { family: 'DM Mono', size: 9 }, callback: v => '$' + Math.round(v).toLocaleString() }, grid: { color: '#2a2a30' } },
+        y: { ticks: { color: '#ccc', font: { family: 'DM Mono', size: 10 } }, grid: { color: '#1e1e23' } }
+      },
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ` ${fmt(ctx.raw)} / month` }
+      }}
+    }
+  });
+}
+
+function updateAll() {
+  const monthly = grandMonthly();
+  const annual = monthly * 12;
+  const topCat = CATS.reduce((best, c) => catMonthly(c) > catMonthly(best) ? c : best, CATS[0]);
+
+  // Totals
+  document.getElementById('totalsRow').innerHTML = [
+    { label: 'Monthly total', value: fmt(monthly), color: '#c8f560' },
+    { label: 'Annual total', value: fmt(annual), color: '#60c8f5' },
+    { label: 'Top category', value: catMonthly(topCat) > 0 ? topCat.label.split(' ')[0] : '—', color: topCat.color },
+    { label: 'Daily average', value: fmt(monthly / 30.4), color: '#f5a060' }
+  ].map(c => `
+    <div class="total-card">
+      <div class="label">${c.label}</div>
+      <div class="value" style="color:${c.color}">${c.value}</div>
+    </div>`).join('');
+
+  // Sidebar totals
+  CATS.forEach(c => {
+    const t = catMonthly(c);
+    const el = document.getElementById('ct-' + c.id);
+    if (el) el.textContent = t > 0 ? fmt(t) : '';
+  });
+
+  // Active cats
+  const activeCats = CATS.filter(c => catMonthly(c) > 0);
+  const labels = activeCats.map(c => c.label.split(' ')[0]);
+  const vals = activeCats.map(c => catMonthly(c));
+  const colors = activeCats.map(c => c.color);
+
+  // Donut
+  donutChart.data.labels = activeCats.map(c => c.label);
+  donutChart.data.datasets[0].data = vals;
+  donutChart.data.datasets[0].backgroundColor = colors;
+  donutChart.update('none');
+
+  // Donut legend
+  document.getElementById('donutLegend').innerHTML = activeCats.map((c, i) => `
+    <div class="legend-item">
+      <span class="legend-dot" style="background:${c.color}"></span>
+      ${c.label.split(' ')[0]}: ${fmt(vals[i])}
+    </div>`).join('');
+
+  // Stacked Bar (monthly vs annual)
+  barChart.data.labels = labels;
+  barChart.data.datasets[0].data = vals;
+  barChart.data.datasets[0].backgroundColor = colors.map(c => c + 'bb');
+  barChart.data.datasets[1].data = vals.map(v => v * 11); // remaining 11 months to show annual
+  barChart.data.datasets[1].backgroundColor = colors.map(c => c + '44');
+  barChart.update('none');
+
+  // Hbar
+  const sortedCats = [...CATS].sort((a, b) => catMonthly(b) - catMonthly(a));
+  const hbarHeight = Math.max(280, sortedCats.length * 38 + 60);
+  document.getElementById('hbarWrap').style.height = hbarHeight + 'px';
+  hbarChart.data.labels = sortedCats.map(c => c.label);
+  hbarChart.data.datasets[0].data = sortedCats.map(c => catMonthly(c));
+  hbarChart.data.datasets[0].backgroundColor = sortedCats.map(c => c.color + 'cc');
+  hbarChart.update('none');
+
+  document.getElementById('hbarLegend').innerHTML = `
+    <div class="legend-item" style="color:#7a7a85">
+      Monthly equivalent shown — annual expenses prorated
+    </div>`;
+}
+
+function exportCSV() {
+  let csv = 'Category,Item,Frequency,Amount Entered,Monthly Equivalent\n';
+  CATS.forEach(cat => {
+    cat.items.forEach((item, i) => {
+      const val = amounts[`${cat.id}-${i}`] || 0;
+      const monthly = toMonthly(val, item.f);
+      csv += `"${cat.label}","${item.n}","${item.f}",${val},${monthly.toFixed(2)}\n`;
+    });
+  });
+  csv += `\nTotal Monthly,,,,${grandMonthly().toFixed(2)}\n`;
+  csv += `Total Annual,,,,${(grandMonthly() * 12).toFixed(2)}\n`;
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'family_budget_export.csv';
+  a.click();
+}
+
+function resetAll() {
+  CATS.forEach(cat => cat.items.forEach((_, i) => {
+    amounts[`${cat.id}-${i}`] = 0;
+    const inp = document.getElementById(`inp-${cat.id}-${i}`);
+    if (inp) inp.value = '';
+  }));
+  updateAll();
+}
+
+buildSidebar();
+initCharts();
+updateAll();
+
+// Pre-fill sample data for demo
+const demo = {
+  'housing-0': 1800, 'housing-4': 140, 'housing-5': 80, 'housing-6': 50, 'housing-8': 80,
+  'food-0': 900, 'food-1': 250, 'food-2': 120, 'food-3': 80,
+  'transport-0': 450, 'transport-3': 240, 'transport-4': 150, 'transport-6': 50,
+  'health-0': 600, 'health-4': 120, 'health-6': 200, 'health-7': 45,
+  'finance-0': 400, 'finance-2': 300, 'finance-4': 200,
+  'tech-0': 180, 'tech-1': 15, 'tech-2': 10,
+  'children-0': 1200, 'children-4': 300
+};
+
+Object.entries(demo).forEach(([key, val]) => {
+  amounts[key] = val;
+  const [catId, idx] = key.split('-');
+  const inp = document.getElementById(`inp-${catId}-${idx}`);
+  if (inp) inp.value = val;
+});
+
+updateAll();
+</script>
+</body>
+</html>
